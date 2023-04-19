@@ -4,4 +4,4 @@
 
 Data
 
-- (Fire Incident Dispatch Data)[https://data.cityofnewyork.us/Public-Safety/Fire-Incident-Dispatch-Data/8m42-w767]
+- [Fire Incident Dispatch Data](https://data.cityofnewyork.us/Public-Safety/Fire-Incident-Dispatch-Data/8m42-w767)
