@@ -1,17 +1,15 @@
 library(arrow)
 library(tidyverse)
+library(lubridate)
+library(kableExtra)
 
 data <- read_csv_arrow("../data/Fire_Incident_Dispatch_Data.csv")
 data <- data %>% mutate(
   year = year(mdy_hms(INCIDENT_DATETIME))
 )
+data %>% group_by(year) %>% write_dataset(path ="../data/")
 
-data_2021 <- data %>% filter(year == 2021)
-data_2020 <- data %>% filter(year == 2020)
-data_2019 <- data %>% filter(year == 2019)
-
-data$INCIDENT_DATETIME[589848]
-dt <-"01/01/2005 04:05:20 AM"
-year(mdy_hms(dt))
+data2021 <- read_parquet("../data/year=2021/part-0.parquet")
+t(head(data2021)) %>% kbl() %>%   kable_minimal() %>% save_kable("../figures/head.png")
 
 
