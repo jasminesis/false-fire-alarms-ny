@@ -1,75 +1,92 @@
-fitness <- read.csv("fitness.csv")
-summary <- read.csv("summary.csv")
-# main dataset
-# main <- read.csv("main.csv")
-
 library(plyr)
 library(fuzzyjoin)
-
-# 1. point of concern: there are 2 ways in which a false alarm can be 
-# sounded - human 'mischief' and defective alarm system. So should we
-# consider only the machine error false alarms (as it may not make sense
-# to predict human 'mischief')
-
 library(dplyr)
 library(rusps)
 library(XML)
+library(arrow)
+library(tidyverse)
+library(lubridate)
+library(kableExtra)
 
-# cleaning the 'bin' column of 'fitness'
-sum(fitness$BIN == "0")
-rows <- which(fitness$PREM_ADDR == "10 GRAND ARMY PLZ")
-fitness[rows,]$BIN <- "3029665"
-unique(fitness[which(fitness$BIN == "0"),]$PREM_ADDR)
-rows2 <- which(fitness$PREM_ADDR == "141 W 156 ST")
-fitness[rows2,]$BIN <- NA
-rows3 <- which(fitness$PREM_ADDR == "30-20 THOMPSON AVE")
-fitness[rows3,]$BIN <- "4003517"
-rows4 <- which(fitness$PREM_ADDR == "1 WORLDS FAIR MARINA")
-fitness[rows4,]$BIN <- "4541458"
-rows5 <- which(fitness$PREM_ADDR == "21 WEST END AVE")
-fitness[rows5,]$BIN <- "1088870"
-rows6 <- which(fitness$PREM_ADDR == "30-30 THOMPSON AVE")
-fitness[rows6,]$BIN <- "4003533"
-rows7 <- which(fitness$PREM_ADDR == "254-14 UNION TNPK")
-fitness[rows7,]$BIN <- "4539986"
-rows8 <- which(fitness$PREM_ADDR == "17-19 HAZEN ST")
-fitness[rows8,]$BIN <- "2118476"
-rows9 <- which(fitness$PREM_ADDR == "186-16 UNION TNPK")
-fitness[rows9,]$BIN <- "4156125"
-rows10 <- which(fitness$PREM_ADDR == "188-10 UNION TNPK")
-fitness[rows10,]$BIN <- "4156312"
-rows11 <- which(fitness$PREM_ADDR == "82 W 225 ST")
-fitness[rows11,]$BIN <- "1064698"
-# right now, is 1 NA in 'bin'
+# we want to find the probability of false fire alarms by ZIPCODE 
+# (we tried to use BIN number but the dataset which has information about the 
+# incidents for false fire alarms does not have inforamtion more exact than 
+# zipcodes apart from alarm box numbers but we decided not to use alarm box numbers as 
+# all the datasets that we wish to merge with data2021 do not have alarm box number information.
+# We also could not find a way to effectively find the alarm box information from BIN numbers; which is
+# present in the datasets that we wish to merge with data2021)
+
+# reading in fitness, summary, alarm_box_locations, inspections, rbis, violation, data2021
+data <- read_csv_arrow("dispatch.csv")
+data <- data %>% mutate(
+  year = year(mdy_hms(INCIDENT_DATETIME))
+)
+data %>% group_by(year) %>% write_dataset(path ="data/")
+data2021 <- read_parquet("./data/year=2021/part-0.parquet")
+
+fitness <- read.csv("fitness.csv")
+summary <- read.csv("summary.csv")
+alarm_box_locations <- read.csv("alarm_box_locations.csv")
+inspections <- read.csv("inspections.csv")
+rbis <- read.csv("rbis.csv")
+violation <- read.csv("violation orders.csv")
+
+data2021_temp <- data2021
+fitness_temp <- fitness
+summary_temp <- summary
+alarm_box_locations_temp <- alarm_box_locations
+inspections_temp <- inspections
+rbis_temp <- rbis
+violation_temp <- violation
+
+# removing unnecessary columns from all datasets
+fitness_temp <- fitness_temp %>% select(-COF_ID, -COF_NUM,
+                                        -COF_TYPE, -HOLDER_NAME,
+                                        -BIN, -COMMUNITY.BOARD,
+                                        -COUNCIL.DISTRICT, -BBL,
+                                        -LATITUDE, -LONGITUDE,
+                                        -NUMBER, -STREET, 
+                                        -CENSUS.TRACT, -NTA)
+summary_temp <- summary_temp %>% select(-SUMMARY_ID, -SPRINKLER_TYPE,
+                              -STANDPIPE_TYPE, -BIN, 
+                              -BBL, 
+                              -BLOCK, -LOT, -COMMUNITY.BOARD, 
+                              -COUNCIL.DISTRICT)
+alarm_box_locations_temp <- alarm_box_locations_temp %>% select(-BOX_TYPE,
+                                                                -COMMUNITYDISTICT,
+                                                                -CITYCOUNCIL,
+                                                                -LATITUDE, -LONGITUDE, -Location.Point)
+
+inspections_temp <- inspections_temp %>% select(-ACCT_ID, -ALPHA, -ACCT_NUM,
+                                                -OWNER_NAME, -BIN, -COMMUNITY.BOARD, 
+                                                -COUNCIL.DISTRICT, -BBL, 
+                                                -LATITUDE, -LONGITUDE, -Number,
+                                                -Street, -Census.Tract, -NTA)
+rbis_temp <- rbis_temp %>% select(-INSPTN_OPS_DETAIL, -INSPECTING_UNIT_CODE,
+                                  -BLDG_CURRENT_BIN_FK, -COMMUNITYDISTRICT, 
+                                  -CITYCOUNCILDISTRICT, -BBL, 
+                                  -Location.1)
+violation_temp <- violation_temp %>% select(-VIO_ID, -ACCT_NUM, -ACCT_OWNER,
+                                            -VIOLATION_NUM, -BIN, -COMMUNITY.BOARD,
+                                            -COUNCIL.DISTRICT, -BBL,
+                                            -LATITUDE, -LONGITUDE, -NUMBER,
+                                            -STREET, -CENSUS.TRACT, -NTA)
 
 # cleaning the 'borough' column of 'fitness'
-fitness[(fitness$BOROUGH == "") & (fitness$PREM_ADDR == "10 GRAND ARMY PLZ"),]$BOROUGH <- "Brooklyn"
-fitness[(fitness$BOROUGH == "") & (fitness$PREM_ADDR == "30-20 THOMPSON AVE"),]$BOROUGH <- "Queens"
-fitness[(fitness$BOROUGH == "") & (fitness$PREM_ADDR == "1 WORLDS FAIR MARINA"),]$BOROUGH <- "Queens"
-fitness[(fitness$BOROUGH == "") & (fitness$PREM_ADDR == "21 WEST END AVE"),]$BOROUGH <- "Manhattan"
-fitness[(fitness$BOROUGH == "") & (fitness$PREM_ADDR == "30-30 THOMPSON AVE"),]$BOROUGH <- "Queens"
-fitness[(fitness$BOROUGH == "") & (fitness$PREM_ADDR == "254-14 UNION TNPK"),]$BOROUGH <- "Queens"
-fitness[(fitness$BOROUGH == "") & (fitness$PREM_ADDR == "17-19 HAZEN ST"),]$BOROUGH <- "Queens"
-fitness[(fitness$BOROUGH == "") & (fitness$PREM_ADDR == "186-16 UNION TNPK"),]$BOROUGH <- "Queens"
-fitness[(fitness$BOROUGH == "") & (fitness$PREM_ADDR == "188-10 UNION TNPK"),]$BOROUGH <- "Queens"
-fitness[(fitness$BOROUGH == "") & (fitness$PREM_ADDR == "82 W 225 ST"),]$BOROUGH <- "Bronx"
+fitness_temp[(fitness_temp$BOROUGH == "") & (fitness_temp$PREM_ADDR == "10 GRAND ARMY PLZ"),]$BOROUGH <- "Brooklyn"
+fitness_temp[(fitness_temp$BOROUGH == "") & (fitness_temp$PREM_ADDR == "1 WORLDS FAIR MARINA"),]$BOROUGH <- "Queens"
+fitness_temp[(fitness_temp$BOROUGH == "") & (fitness_temp$PREM_ADDR == "21 WEST END AVE"),]$BOROUGH <- "Manhattan"
+fitness_temp[(fitness_temp$BOROUGH == "") & (fitness_temp$PREM_ADDR == "30-30 THOMPSON AVE"),]$BOROUGH <- "Queens"
+fitness_temp[(fitness_temp$BOROUGH == "") & (fitness_temp$PREM_ADDR == "254-14 UNION TNPK"),]$BOROUGH <- "Queens"
+fitness_temp[(fitness_temp$BOROUGH == "") & (fitness_temp$PREM_ADDR == "17-19 HAZEN ST"),]$BOROUGH <- "Queens"
+fitness_temp[(fitness_temp$BOROUGH == "") & (fitness_temp$PREM_ADDR == "186-16 UNION TNPK"),]$BOROUGH <- "Queens"
 
-# aim - to merge using borough, postcodes and BIN
-# cannot use latitude and longitude as the coordinates would be too close to each other - difficult to parse as well
-
-# removing unnecessary columns
-fitness <- fitness %>% select(-COMMUNITY.BOARD, -COUNCIL.DISTRICT, -BBL, 
-                              -LATITUDE, -LONGITUDE, -CENSUS.TRACT, -NTA, -COF_ID, -COF_NUM)
-# since there are many NA values in the 'postcodes' column,
-# we join fitness and summary using bin number only - we will
-# add postcodes with the help of other datasets that we join
-fitness <- fitness %>% select(-POSTCODE)
 # the first address does not seem to be correct
 # we remove this row
-fitness <- fitness[-1,]
+fitness_temp <- fitness_temp[-1,]
 
 # recoding the boroughs
-fitness <- fitness %>%
+fitness_temp <- fitness_temp %>%
   mutate(across(where(is.character), 
                 ~ if_else(. == "MN", "Manhattan", 
                           if_else(. == "BK", "Brooklyn",
@@ -77,163 +94,99 @@ fitness <- fitness %>%
                                           if_else(. == "BX", "Bronx",
                                                   if_else(. == "QN", "Queens", .)))))))
 
-# recoding the boroughs for 'summary'
-summary <- summary %>%
-  mutate(across(where(is.character), 
-                ~ if_else(. == "MN", "Manhattan", 
-                          if_else(. == "BK", "Brooklyn",
-                                  if_else(. == "SI", "Staten Island",
-                                          if_else(. == "BX", "Bronx",
-                                                  if_else(. == "QN", "Queens", .)))))))
+alarm_box_locations_temp <- alarm_box_locations_temp %>% rename('ZIPCODE' = 'ZIP')
+alarm_box_locations_temp <- alarm_box_locations_temp %>% rename('ALARM_BOX_LOCATION' = 'LOCATION')
+alarm_box_locations_temp$BOROBOX <- sub('.', '', alarm_box_locations_temp$BOROBOX)
+alarm_box_locations_temp <- alarm_box_locations_temp %>% rename('ALARM_BOX_NUMBER' = 'BOROBOX')
 
-# removing unnecessary columns
-summary <- summary %>% select(-BLOCK, -LOT, -COMMUNITY.BOARD, -COUNCIL.DISTRICT,
-                              -BBL, 
-                              -LATITUDE, -LONGITUDE)
+data2021_temp <- data2021_temp %>% rename('ALARM_BOX_NUMBER' = 'ALARM_BOX_NUMBER.x')
+data2021_temp <- data2021_temp %>% rename('ZIPCODE' = 'ZIPCODE.x') %>% select(-ALARM_BOX_NUMBER.y)
 
-# joining the 2 datasets
-fitness$BIN <- as.numeric(fitness$BIN)
-joined <- rbind.fill(fitness, summary)
+data2021_temp$ALARM_BOX_NUMBER[which(nchar(data2021_temp$ALARM_BOX_NUMBER) == 3)] <- 
+  paste0("0", data2021_temp$ALARM_BOX_NUMBER[which(nchar(data2021_temp$ALARM_BOX_NUMBER) == 3)])
 
-# predictors that we can use: expires on, borough, prem address (?), number of violation notices, number of violation orders (from 'joined' dataset)
-# predictors that we can use: violation dates (from 'violations' dataset)
+data2021_temp$ALARM_BOX_NUMBER[which(nchar(data2021_temp$ALARM_BOX_NUMBER) == 2)] <- 
+  paste0("00", data2021_temp$ALARM_BOX_NUMBER[which(nchar(data2021_temp$ALARM_BOX_NUMBER) == 2)])
 
-# working with 'violation' dataset
-violation <- read.csv("violation orders.csv")
-rows1 <- which(violation$PREM_ADDR == "1 SO FERRY STATION")
-violation[rows1,]$BIN <- "1000027"
-rows2 <- which(violation$PREM_ADDR == "21 WEST END AVE")
-violation[rows2,]$BIN <- "1088870"
-rows3 <- which(violation$PREM_ADDR == "343 COURT ST")
-violation[rows3,]$BIN <- "3007004"
-rows3 <- which(violation$PREM_ADDR == "17-19 HAZEN ST")
-violation[rows3,]$BIN <- "2118476"
-violation[which(violation$PREM_ADDR == "301 SHORE RD"), ]$PREM_ADDR <- "30-1 SHORE RD"
-row4 <- which(violation$PREM_ADDR == "30-1 SHORE RD")
-violation[rows4,]$BIN <- "4168098"
-rows5 <- which(violation$PREM_ADDR == "2323 ADAM CLAYTON BLVD")
-violation[rows5,]$BIN <- "1058309"
-rows6 <- which(violation$PREM_ADDR == "1 BEACH 116 ST STAT")
-violation[rows6,]$BIN <- "4303939"
-rows7 <- which(violation$PREM_ADDR == "1103 E GUNHILL RD")
-violation[rows7,]$BIN <- "2059733"
-rows8 <- which(violation$PREM_ADDR == "1610 TILDEN AVE")
-violation[rows8,]$BIN <- NA
-rows9 <- which(violation$PREM_ADDR == "2013 ADAM CLAYTON BLVD")
-violation[rows9,]$BIN <- "1057660"
-rows10 <- which(violation$PREM_ADDR == "1213-43 E 15 ST")
-violation[rows10,]$BIN <- "3180674"
-rows11 <- which(violation$PREM_ADDR == "30-30 THOMPSON AVE")
-violation[rows11,]$BIN <- "4003533"
-rows12 <- which(violation$PREM_ADDR == "30 PERIMETER RD")
-violation[rows12,]$BIN <- NA
-rows13 <- which(violation$PREM_ADDR == "1 CHELSEA PIERS")
-violation[rows13,]$BIN <- "1000000"
-rows14 <- which(violation$PREM_ADDR == "3 CANAL ST STATION")
-violation[rows14,]$BIN <- NA
-rows15 <- which(violation$PREM_ADDR == "188-02 UNION TNPK")
-violation[rows15,]$BIN <- "4156312"
-rows16 <- which(violation$PREM_ADDR == "1 PIER 36 EMS BLDG")
-violation[rows16,]$BIN <- "1079601"
-rows17 <- which(violation$PREM_ADDR == "1 BEACH 67 ST STATION")
-violation[rows17,]$BIN <- "4818796" # 211-213 beach 67 st
-rows18 <- which(violation$PREM_ADDR == "118-23 GUY BREWER BLVD")
-violation[rows18,]$BIN <- "4529903" # 116-30 guy brewer blvd
-rows19 <- which(violation$PREM_ADDR == "1 BEACH 60 ST STATION")
-violation[rows19,]$BIN <- "4818388" # 217 beach 60 st
-rows20 <- which(violation$PREM_ADDR == "98 W 225 ST")
-violation[rows20,]$BIN <- "1064698"
-rows21 <- which(violation$PREM_ADDR == "94-45 GUY BREWER BLVD")
-violation[rows21,]$BIN <- "4529903" # 116-30 guy brewer blvd
-rows22 <- which(violation$PREM_ADDR == "129 ODELL CLARK PL")
-violation[rows22,]$BIN <- "1060023"
-rows23 <- which(violation$PREM_ADDR == "31-40 THOMPSON AVE")
-violation[rows23,]$BIN <- "4003535"
-rows24 <- which(violation$PREM_ADDR == "52-10 CENTER BLVD")
-violation[rows24,]$BIN <- "4542932"
-rows25 <- which(violation$PREM_ADDR == "338 STORY RD")
-violation[rows25,]$BIN <- NA
+data2021_temp$ALARM_BOX_NUMBER[which(nchar(data2021_temp$ALARM_BOX_NUMBER) == 1)] <- 
+  paste0("000", data2021_temp$ALARM_BOX_NUMBER[which(nchar(data2021_temp$ALARM_BOX_NUMBER) == 1)])
 
-# renaming boroughs for 'violation'
-violation <- violation %>%
-  mutate(across(where(is.character), 
-                ~ if_else(. == "MN", "Manhattan", 
-                          if_else(. == "BK", "Brooklyn",
-                                  if_else(. == "SI", "Staten Island",
-                                          if_else(. == "BX", "Bronx",
-                                                  if_else(. == "QN", "Queens", .)))))))
+left_join_keep_first_only <- function(x, y, by) {
+  ## Our strategy is to use summarize/first on y for each non-match category,
+  ## then join that to x.
+  . <- NULL                           # silence notes on package check
+  ll <- by
+  names(ll) <- NULL
+  y %>%
+    dplyr::group_by_at(tidyselect::all_of(ll)) %>%
+    dplyr::summarize_at(dplyr::vars(-tidyselect::any_of(ll)), first) %>%
+    ungroup() %>%
+    left_join(x, ., by=by)
+}
 
+# joining alarm_box_locations
+data2021_temp$ALARM_BOX_NUMBER <- as.integer(data2021_temp$ALARM_BOX_NUMBER)
+alarm_box_locations_temp$ALARM_BOX_NUMBER <- as.integer(alarm_box_locations_temp$ALARM_BOX_NUMBER)
+data2021_temp <- left_join_keep_first_only(data2021_temp, alarm_box_locations_temp, by = 'ALARM_BOX_NUMBER')
 
-# removing unnecessary columns
-violation <- violation %>% select(-VIO_ID, -ACCT_NUM, -ACCT_OWNER, -VIO_LAW_NUM, -COMMUNITY.BOARD, 
-                                  -COUNCIL.DISTRICT, -BBL, -LATITUDE, -LONGITUDE, -POSTCODE, -CENSUS.TRACT, -NTA,
-                                  -VIOLATION_NUM)
+############################ not sure why zipcodes which were NA
+# in data2021 before were not replaced data in alarm_box_locations_temp
+# ZIPCODES UNSUCCESSFULLY ADDED FROM alarm_box_locations (join by ALARM_BOX_NUMBER)
 
-# reading in 'causes' dataset
-causes <- read.csv("causes.csv")
+# joining fitness
+############################ would be helpful if you could populate the zipcode
+# missing data in the fitness dataset using this API 'https://tools.usps.com/zip-code-lookup.htm?byaddress'
+# (we have all teh adresses in fitness but some associated zipcodes are missing)
+fitness_temp <- fitness_temp %>% rename('ZIPCODE' = 'POSTCODE')
+fitness_temp$EXPIRES_ON <- mdy(fitness_temp$EXPIRES_ON)
+fitness_temp <- fitness_temp[which(year(fitness_temp$EXPIRES_ON) > 2020),]
+date <- as.POSIXct(data2021_temp$INCIDENT_DATETIME, format = "%m/%d/%Y %I:%M:%S %p")
+data2021_temp$INCIDENT_DATETIME <- format(date, "%m/%d/%Y")
+data2021_temp$INCIDENT_DATETIME <- mdy(data2021_temp$INCIDENT_DATETIME)
+data2021_temp <- data2021_temp %>% select(-ALARM_BOX_LOCATION.y, 
+                                          -ZIPCODE.y) %>% rename('ZIPCODE' = 'ZIPCODE.x',
+                                                                 'ALARM_BOX_LOCATION' = 'ALARM_BOX_LOCATION.x')
+data2021_temp <- left_join_keep_first_only(data2021_temp, 
+                          fitness_temp, by = 'ZIPCODE')
+data2021_temp <- data2021_temp %>% select(-BOROUGH.y) %>% rename('BOROUGH' = 'BOROUGH.x')
+# EXPIRES_ON ADDED SUCCESSFULLY FROM fitness (join by ZIPCODE)
 
-# reading in 'inspections' dataset
-inspections <- read.csv("inspections.csv")
+# joining inspections
 # renaming boroughs
-inspections <- inspections %>%
+inspections_temp <- inspections_temp %>%
   mutate(across(where(is.character), 
                 ~ if_else(. == "MN", "Manhattan", 
                           if_else(. == "BK", "Brooklyn",
                                   if_else(. == "SI", "Staten Island",
                                           if_else(. == "BX", "Bronx",
                                                   if_else(. == "QN", "Queens", .)))))))
+inspections_temp <- inspections_temp %>% rename('ZIPCODE' = 'POSTCODE')
+data2021_temp <- left_join_keep_first_only(data2021_temp, 
+                                           inspections_temp, by = 'ZIPCODE')
+data2021_temp <- data2021_temp %>% select(-BOROUGH.y, -PREM_ADDR.y) %>% 
+  rename('BOROUGH' = 'BOROUGH.x', 'PREM_ADDR' = 'PREM_ADDR.x')
+# LAST_VISIT_DT, LAST_FULL_INSP_DT, LAST_INSP_STAT ADDED SUCCESSFULLY FROM inspections
+# (join by ZIPCODE)
 
-causes <- causes %>% rename('BOROUGH' = 'Borough')
+# joining summary
+# recoding the boroughs for 'summary'
+summary_temp <- summary_temp %>%
+  mutate(across(where(is.character), 
+                ~ if_else(. == "MN", "Manhattan", 
+                          if_else(. == "BK", "Brooklyn",
+                                  if_else(. == "SI", "Staten Island",
+                                          if_else(. == "BX", "Bronx",
+                                                  if_else(. == "QN", "Queens", .)))))))
+names(summary_temp)
+############################ not sure how to add this to data2021 since
+# there are no zipcodes in this dataset (there are latitudes and langitudes
+# but I don't know how to convert them to zipcodes --- seems to be associated
+# with Google API but not sure how to use it!)
+# NUM_SIAM_SPRINKLER, NUM_SIAM_STANDPIPE, NUM_OF_VIOLATION_NOTICES,
+# NUM_OF_VIOLATION_ORDER UNSUCCESSFULLY ADDED FROM summary
 
-joined <- rbind.fill(joined, inspections)
-joined <- rbind.fill(joined, causes)
-
-
-joined <- joined %>% select(-COF_TYPE, -SUMMARY_ID, -ACCT_ID, -ACCT_NUM, -ALPHA, -COMMUNITY.BOARD, 
-                            -COUNCIL.DISTRICT, -BBL, -LONGITUDE,
-                            -LATITUDE, -POSTCODE, -Census.Tract, -NTA, -COF_TYPE, -Battalion, -Community_District,
-                            -Precinct)
-joined <- joined[-which(duplicated(joined)),]
-
-library(lubridate)
-
-joined2 <- joined
-joined2$LAST_FULL_INSP_DT <- mdy(joined2$LAST_FULL_INSP_DT)
-joined2$LAST_VISIT_DT <- mdy(joined2$LAST_VISIT_DT)
-joined2$Incident_DateTime <- mdy_hms(joined2$Incident_DateTime)
-joined2$Incident_DateTime <- format(joined2$Incident_DateTime, "%m/%d/%Y")
-
-joined2 <- joined2 %>% select(-Number, -NUMBER, -Street, -STREET, -OWNER_NAME, -HOLDER_NAME, -Case_Year)
-
-View(joined2)
-
-
-
-
-
-
-
-name(joined2)
-sum(joined2$LAST_FULL_INSP_DT > joined2$Incident_DateTime, na.rm = T)
-sum(is.na(joined2$LAST_INSP_STAT))
-table(joined2$LAST_INSP_STAT)
-
-View(joined2[which(joined2$LAST_INSP_STAT == ""),])
-
-
-not_approvals <- joined2 %>% filter(grepl('NOT APPROVAL(VIO)', LAST_INSP_STAT))
-
-
-
-
-range(joined)
-
-
-
-
-
-
-rbis <- read.csv("rbis.csv")
+# joining rbis
+# recoding the boroughs for 'rbis'
 rbis <- rbis %>%
   mutate(across(where(is.character), 
                 ~ if_else(. == "MN", "Manhattan", 
@@ -241,6 +194,57 @@ rbis <- rbis %>%
                                   if_else(. == "SI", "Staten Island",
                                           if_else(. == "BX", "Bronx",
                                                   if_else(. == "QN", "Queens", .)))))))
-full_join(joined, rbis)
+names(rbis_temp)
+############################ not sure how to add this to data2021 since
+# there are no zipcodes in this dataset (there are latitudes and langitudes
+# but I don't know how to convert them to zipcodes --- seems to be associated
+# with Google API but not sure how to use it!)
+# INSPTN_TYP_CD, INSP_INSPECT_DT UNSUCCESSFULLY ADDED FROM rbis (join by zipcode)
 
-View(rbis)
+# joining violation
+violation_temp <- violation_temp %>%
+  mutate(across(where(is.character), 
+                ~ if_else(. == "MN", "Manhattan", 
+                          if_else(. == "BK", "Brooklyn",
+                                  if_else(. == "SI", "Staten Island",
+                                          if_else(. == "BX", "Bronx",
+                                                  if_else(. == "QN", "Queens", .)))))))
+violation_temp <- violation_temp %>% rename('ZIPCODE' = 'POSTCODE')
+data2021_temp <- left_join_keep_first_only(data2021_temp, 
+                                           violation_temp, by = 'ZIPCODE')
+data2021_temp <- data2021_temp %>% select(-BOROUGH.y, -PREM_ADDR.y) %>% 
+  rename('BOROUGH' = 'BOROUGH.x', 'PREM_ADDR' = 'PREM_ADDR.x')
+# VIO_LAW_NUM, VIO_LAW_DESC, VIO_DATE, ACTION SUCCESSFULLY ADDED FROM violation (join by zipcode)
+
+data2021_temp <- data2021_temp %>% select(-POLICEPRECINCT, -CITYCOUNCILDISTRICT, -COMMUNITYDISTRICT,
+                                        -COMMUNITYSCHOOLDISTRICT, -CONGRESSIONALDISTRICT)
+
+# creating column for the number of days between last inspection and incident date
+data2021_temp$LAST_FULL_INSP_DT <- mdy(data2021_temp$LAST_FULL_INSP_DT)
+data2021_temp <- data2021_temp %>% mutate(days_after_last_inspection = 
+                                            data2021_temp$INCIDENT_DATETIME - data2021_temp$LAST_FULL_INSP_DT)
+data2021_temp <- data2021_temp %>% select(-STARFIRE_INCIDENT_ID, -ALARM_BOX_BOROUGH, 
+                                          -ALARM_BOX_LOCATION, -INCIDENT_BOROUGH)
+
+data2021_temp$INCIDENT_CLASSIFICATION <- as.factor(data2021_temp$INCIDENT_CLASSIFICATION)
+
+data2021_temp2 <- data2021_temp
+levels(data2021_temp2$INCIDENT_CLASSIFICATION)[c(2, 4)] <- 1
+levels(data2021_temp2$INCIDENT_CLASSIFICATION)[-2] <- 0
+names(data2021_temp2)
+
+data2021_temp2$ALARM_LEVEL_INDEX_DESCRIPTION <- as.factor(data2021_temp2$ALARM_LEVEL_INDEX_DESCRIPTION)
+data2021_temp2$ALARM_BOX_NUMBER <- as.factor(data2021_temp2$ALARM_BOX_NUMBER)
+data2021_temp2$ZIPCODE <- as.factor(data2021_temp2$ZIPCODE)
+data2021_temp2$ALARM_SOURCE_DESCRIPTION_TX <- as.factor(data2021_temp2$ALARM_SOURCE_DESCRIPTION_TX)
+data2021_temp2$HIGHEST_ALARM_LEVEL <- as.factor(data2021_temp2$HIGHEST_ALARM_LEVEL)
+
+data2021_temp2$INCIDENT_CLASSIFICATION_GROUP
+
+glm(INCIDENT_CLASSIFICATION ~ )
+
+
+sapply(X = false_alarms, FUN = function(x) sum(is.na(x)))
+
+
+
