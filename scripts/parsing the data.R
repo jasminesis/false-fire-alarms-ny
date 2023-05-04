@@ -1,12 +1,16 @@
 library(plyr)
 library(fuzzyjoin)
 library(dplyr)
-library(rusps)
 library(XML)
 library(arrow)
 library(tidyverse)
 library(lubridate)
 library(kableExtra)
+
+# install.packages("remotes")
+# remotes::install_github("hansthompson/rusps")
+library(rusps)
+
 
 # we want to find the probability of false fire alarms by ZIPCODE 
 # (we tried to use BIN number but the dataset which has information about the 

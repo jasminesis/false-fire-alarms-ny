@@ -5,3 +5,5 @@
 ## Data
 
 - [Fire Incident Dispatch Data](https://data.cityofnewyork.us/Public-Safety/Fire-Incident-Dispatch-Data/8m42-w767)
+
+- [Data folder](https://drive.google.com/drive/folders/1ugDRi_gLeraHfK2_-SxQQGgPZzPK6IB8?usp=sharing)
