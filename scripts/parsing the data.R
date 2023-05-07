@@ -26,14 +26,14 @@ data <- data %>% mutate(
   year = year(mdy_hms(INCIDENT_DATETIME))
 )
 data %>% group_by(year) %>% write_dataset(path ="data/")
-data2021 <- read_parquet("./data/year=2021/part-0.parquet")
+data2021 <- read_parquet("../data/year=2021/part-0.parquet")
 
-fitness <- read.csv("fitness.csv")
-summary <- read.csv("summary.csv")
-alarm_box_locations <- read.csv("alarm_box_locations.csv")
-inspections <- read.csv("inspections.csv")
-rbis <- read.csv("rbis.csv")
-violation <- read.csv("violation orders.csv")
+fitness <- read.csv("../data/fitness.csv")
+summary <- read.csv("../data/summary.csv")
+alarm_box_locations <- read.csv("../data/alarm_box_locations.csv")
+inspections <- read.csv("../data/inspections.csv")
+rbis <- read.csv("../data/rbis.csv")
+violation <- read.csv("../data/violation orders.csv")
 
 data2021_temp <- data2021
 fitness_temp <- fitness
@@ -52,10 +52,10 @@ fitness_temp <- fitness_temp %>% select(-COF_ID, -COF_NUM,
                                         -NUMBER, -STREET, 
                                         -CENSUS.TRACT, -NTA)
 summary_temp <- summary_temp %>% select(-SUMMARY_ID, -SPRINKLER_TYPE,
-                              -STANDPIPE_TYPE, -BIN, 
-                              -BBL, 
-                              -BLOCK, -LOT, -COMMUNITY.BOARD, 
-                              -COUNCIL.DISTRICT)
+                                        -STANDPIPE_TYPE, -BIN, 
+                                        -BBL, 
+                                        -BLOCK, -LOT, -COMMUNITY.BOARD, 
+                                        -COUNCIL.DISTRICT)
 alarm_box_locations_temp <- alarm_box_locations_temp %>% select(-BOX_TYPE,
                                                                 -COMMUNITYDISTICT,
                                                                 -CITYCOUNCIL,
@@ -151,7 +151,7 @@ data2021_temp <- data2021_temp %>% select(-ALARM_BOX_LOCATION.y,
                                           -ZIPCODE.y) %>% rename('ZIPCODE' = 'ZIPCODE.x',
                                                                  'ALARM_BOX_LOCATION' = 'ALARM_BOX_LOCATION.x')
 data2021_temp <- left_join_keep_first_only(data2021_temp, 
-                          fitness_temp, by = 'ZIPCODE')
+                                           fitness_temp, by = 'ZIPCODE')
 data2021_temp <- data2021_temp %>% select(-BOROUGH.y) %>% rename('BOROUGH' = 'BOROUGH.x')
 # EXPIRES_ON ADDED SUCCESSFULLY FROM fitness (join by ZIPCODE)
 
@@ -221,7 +221,7 @@ data2021_temp <- data2021_temp %>% select(-BOROUGH.y, -PREM_ADDR.y) %>%
 # VIO_LAW_NUM, VIO_LAW_DESC, VIO_DATE, ACTION SUCCESSFULLY ADDED FROM violation (join by zipcode)
 
 data2021_temp <- data2021_temp %>% select(-POLICEPRECINCT, -CITYCOUNCILDISTRICT, -COMMUNITYDISTRICT,
-                                        -COMMUNITYSCHOOLDISTRICT, -CONGRESSIONALDISTRICT)
+                                          -COMMUNITYSCHOOLDISTRICT, -CONGRESSIONALDISTRICT)
 
 # creating column for the number of days between last inspection and incident date
 data2021_temp$LAST_FULL_INSP_DT <- mdy(data2021_temp$LAST_FULL_INSP_DT)
@@ -233,7 +233,8 @@ data2021_temp <- data2021_temp %>% select(-STARFIRE_INCIDENT_ID, -ALARM_BOX_BORO
 data2021_temp$INCIDENT_CLASSIFICATION <- as.factor(data2021_temp$INCIDENT_CLASSIFICATION)
 
 data2021_temp2 <- data2021_temp
-levels(data2021_temp2$INCIDENT_CLASSIFICATION)[c(2, 4)] <- 1
+# Alarm System - Defective & Alarm System - Unnecessary 
+levels(data2021_temp2$INCIDENT_CLASSIFICATION)[c(2, 4)] <- 1 
 levels(data2021_temp2$INCIDENT_CLASSIFICATION)[-2] <- 0
 names(data2021_temp2)
 
@@ -245,10 +246,11 @@ data2021_temp2$HIGHEST_ALARM_LEVEL <- as.factor(data2021_temp2$HIGHEST_ALARM_LEV
 
 data2021_temp2$INCIDENT_CLASSIFICATION_GROUP
 
-glm(INCIDENT_CLASSIFICATION ~ )
+table(data2021_temp2$INCIDENT_CLASSIFICATION)
+
+# glm(INCIDENT_CLASSIFICATION ~ )
 
 
 sapply(X = false_alarms, FUN = function(x) sum(is.na(x)))
-
 
 
