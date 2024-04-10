@@ -2,6 +2,8 @@
 
 [Final report doc](https://docs.google.com/document/d/1Up9auAKHYTrbaVy7S4BWpYMDSHcW-2nBl9zskhtRN4w/edit?usp=sharing)
 
+![Poster](poster.png)
+
 ## Data
 
 - [Fire Incident Dispatch Data](https://data.cityofnewyork.us/Public-Safety/Fire-Incident-Dispatch-Data/8m42-w767)
