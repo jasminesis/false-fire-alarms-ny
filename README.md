@@ -2,7 +2,7 @@
 
 [Final report doc](https://docs.google.com/document/d/1Up9auAKHYTrbaVy7S4BWpYMDSHcW-2nBl9zskhtRN4w/edit?usp=sharing)
 
-![Poster](poster.png)
+![Poster](final_poster.png)
 
 ## Data
 
@@ -10,4 +10,4 @@
 
 - [Data folder](https://drive.google.com/drive/folders/1ugDRi_gLeraHfK2_-SxQQGgPZzPK6IB8?usp=sharing)
 
-> Because github doesn't take to big files well, we will have the updated scripts in the github, and then upload any data files to google drive which we will manually keep updated.
+> Because github doesn't take to big files well, we will have the updated scripts in the github, and then upload any data files to google drive which we keep updated manually.
